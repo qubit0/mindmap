@@ -17,7 +17,6 @@ generated cotton-canvas surface — and every node carries a "thread from home":
 - [Tech stack](#tech-stack)
 - [Requirements](#requirements)
 - [Getting started](#getting-started)
-- [Environment variables](#environment-variables)
 - [Available scripts](#available-scripts)
 - [Running for the exhibition (production)](#running-for-the-exhibition-production)
 - [How to interact with the map](#how-to-interact-with-the-map)
@@ -55,7 +54,7 @@ The metaphor is structural, not decorative — it drives the geometry and the in
 | **Taut thread** | A branch mid-pull — it visibly tightens as you drag |
 | **Tangle** | A cross-link: an arc between two distant knots that belong together |
 | **Shuttle** | The ambient bead that glides along threads (SMIL `animateMotion`) |
-| **Selvedge** | The cloth's bottom edge, where visitor threads hang as a fringe |
+| Selvedge | The cloth's finished bottom edge |
 | **Stitching** | The cross-stitch pattern-fill used for the title lettering |
 | **Cotton canvas** | The generated fabric texture everything sits on |
 
@@ -72,7 +71,7 @@ The metaphor is structural, not decorative — it drives the geometry and the in
 | Animation | **framer-motion 12** | Path drawing (`pathLength`), springs, camera tweens |
 | Icons | **lucide-react** | |
 | Components | **shadcn/ui** (2 primitives only) | `button`, `sheet` — the other 45 were removed as unused |
-| Data layer | **Prisma 6 + SQLite** | For the visitor-thread API |
+| Data layer | **None** | No database, no ORM, no API. All content is a TypeScript module |
 | Package manager | **bun** | `bun.lock` is the only lockfile |
 | Fonts | `next/font/google` | Inter + Noto Serif Devanagari, self-hosted at build |
 
@@ -95,7 +94,7 @@ There is **no animation library beyond framer-motion**, **no state manager** (Re
 
 - **bun** ≥ 1.1 (developed on 1.3.x) — this is the only supported package manager
 - **Node.js** ≥ 20 (developed on 22.x)
-- No database server needed — Prisma uses a local SQLite file
+- No database, no API keys, **no configuration** — clone and run
 
 ## Getting started
 
@@ -103,17 +102,7 @@ There is **no animation library beyond framer-motion**, **no state manager** (Re
 # 1. install dependencies
 bun install
 
-# 2. create your environment file from the template
-cp .env.example .env
-#    then edit .env and set DATABASE_URL to the absolute path of your clone
-
-# 3. generate the Prisma client
-bunx prisma generate
-
-# 4. create/patch the SQLite tables
-bun run db:push
-
-# 5. run it
+# 2. run it
 bun run dev
 ```
 
@@ -121,30 +110,8 @@ Then open **<http://localhost:3000>**.
 
 > `bun run dev` starts Next.js on **port 3000** and tees output to `dev.log`.
 
-## Environment variables
-
-A single variable, in `.env` at the project root:
-
-```env
-DATABASE_URL=file:/absolute/path/to/mindmap/db/custom.db
-```
-
-- Use an **absolute path** — the path of your own clone, not the one in the example.
-
-> **Prisma resolves relative SQLite paths against the `prisma/` directory, not the project root.**
-> Verified: with `DATABASE_URL=file:./db/custom.db`, running `bun run db:push` from the project root
-> creates the database at `prisma/db/custom.db` — silently, and not where `db/custom.db` lives. Use an
-> absolute path and this whole class of confusion disappears.
-
-- If the path is wrong, the visitor-thread API fails silently — `/api/threads` catches the Prisma
-  error and returns `{"threads":[]}` with HTTP 200. See [Troubleshooting](#troubleshooting).
-
-`.env` is **git-ignored and not committed** — the repo ships a `.env.example` template instead:
-
-```bash
-cp .env.example .env
-# then edit .env and point DATABASE_URL at your own clone
-```
+There is no build step, no database to provision, and no environment file to create — the project has
+zero configuration. Every thread of content lives in `src/data/mindmap.ts`.
 
 ## Available scripts
 
@@ -154,10 +121,6 @@ cp .env.example .env
 | `bun run build` | `next build`, then copies `.next/static` and `public` into `.next/standalone/` |
 | `bun run start` | Serves the production standalone build (`NODE_ENV=production`, pipes to `server.log`) |
 | `bun run lint` | `eslint .` — currently clean |
-| `bun run db:push` | `prisma db push --accept-data-loss` — sync schema to SQLite |
-| `bun run db:generate` | Regenerate the Prisma client |
-| `bun run db:migrate` | `prisma migrate dev` |
-| `bun run db:reset` | `prisma migrate reset` |
 
 Typecheck (not a script, run manually):
 
@@ -221,15 +184,12 @@ pulling.
 |---|---|---|
 | `/` | Static | The loom — the installation itself |
 | `/card/[id]` | **SSG, 31 pages** | The takeaway a visitor carries out of the room: one knot per page, readable on a phone, framed by the same cotton. Includes definition, how it works, further types, a super-interesting use case, and where it shows up |
-| `/api/threads` | Dynamic | `GET` the 120 latest visitor threads; `POST` a new one (2–90 chars, colour restricted to the six-thread palette) |
 
 `/card/[id]` accepts `root`, `cat-types`, `cat-capabilities`, `cat-applications`, `cat-energy`, and
 every leaf id.
 
-> **Known dead code:** nothing in the current UI calls `/api/threads`. The "Add your thread" dialog
-> that used it was removed in a later revision, so the route, the `VisitorThread` model and
-> `src/lib/db.ts` are now unreferenced by the front end. They are kept because `.zscripts/dev.sh`
-> runs `bun run db:push` on every start and would fail without the schema.
+There are no API routes. The piece is entirely self-contained: all content is compiled in from
+`src/data/mindmap.ts`, and nothing is fetched at runtime.
 
 ## Project structure
 
@@ -240,8 +200,7 @@ mindmap/
 │   │   ├── page.tsx                 # / — mounts the experience
 │   │   ├── layout.tsx               # fonts, metadata, viewport
 │   │   ├── globals.css              # Tailwind 4 theme + cloth/weave utilities
-│   │   ├── card/[id]/page.tsx       # SSG takeaway cards
-│   │   └── api/threads/route.ts     # visitor threads (see dead-code note)
+│   │   └── card/[id]/page.tsx       # SSG takeaway cards
 │   ├── components/
 │   │   ├── tanabana/                # the piece itself
 │   │   │   ├── TanabanaExperience.tsx  # hub: state, attract mode, tour wiring
@@ -258,10 +217,7 @@ mindmap/
 │   └── lib/
 │       ├── threads.ts               # thread geometry engine
 │       ├── cloth.ts                 # procedural cotton-canvas tile
-│       ├── db.ts                    # Prisma client singleton
 │       └── utils.ts                 # cn()
-├── prisma/schema.prisma             # User, Post (scaffold), VisitorThread
-├── db/custom.db                     # SQLite database
 ├── public/robots.txt
 ├── .zscripts/                       # platform build/dev/start scripts
 ├── Caddyfile                        # reverse proxy (:81 → :3000)
@@ -359,26 +315,6 @@ it. The theme lives in `globals.css` under `@theme inline`. Animation utilities 
 The loom is client-rendered. Give it a moment after the dev server reports ready, and check the
 browser console. SSR HTML contains only the shell (~20KB); the hydrated DOM with the full loom is
 much larger (~127KB). If it never hydrates, check for a JavaScript error.
-
-**`/api/threads` returns `{"threads":[]}` and the log shows `Error code 14: Unable to open the database file`**
-`DATABASE_URL` is wrong — usually an absolute path from another machine. Fix `.env`, then **restart
-the dev server**: the Prisma client is cached on `globalThis` in development, so a running server
-keeps the old broken connection.
-
-```bash
-python3 -c "import sqlite3;print([r[0] for r in sqlite3.connect('db/custom.db').execute(\"select name from sqlite_master where type='table'\")])"
-```
-
-**`Cannot find module '@prisma/client'` or a missing `visitorThread` type**
-The client was not generated (it is not committed):
-
-```bash
-bunx prisma generate
-```
-
-**`bun run db:push` fails**
-Check that the directory in `DATABASE_URL` exists and is writable. `db:push` runs
-`--accept-data-loss`, so it will drop columns that no longer exist in the schema.
 
 **`next.config.ts` warns about `bun.lock` outside the repository**
 Harmless. Next detects a lockfile in a parent directory and suggests setting `turbopack.root`. It does
